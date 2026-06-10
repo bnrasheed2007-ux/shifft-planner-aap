@@ -793,11 +793,43 @@ let cycleApplications = [];
 let notifications = [];
 
 // ═══════════════════════════════════════════════════════
+//  STORAGE
+// ═══════════════════════════════════════════════════════
+function saveData() {
+  try {
+    localStorage.setItem('sp_shifts',   JSON.stringify(shifts));
+    localStorage.setItem('sp_cycles',   JSON.stringify(cycles));
+    localStorage.setItem('sp_apps',     JSON.stringify(cycleApplications));
+    localStorage.setItem('sp_username', document.getElementById('cfgName')?.value || '');
+  } catch(e) {}
+}
+
+function loadData() {
+  try {
+    const s = localStorage.getItem('sp_shifts');
+    const c = localStorage.getItem('sp_cycles');
+    const a = localStorage.getItem('sp_apps');
+    const u = localStorage.getItem('sp_username');
+    if (s) shifts = JSON.parse(s);
+    if (c) cycles = JSON.parse(c);
+    if (a) cycleApplications = JSON.parse(a);
+    if (u && document.getElementById('cfgName')) document.getElementById('cfgName').value = u;
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════
 function init() {
+  loadData();
   document.getElementById('dowRow').innerHTML = DAYS.map(d=>`<div class="dow-cell">${d}</div>`).join('');
   document.getElementById('applyStartDate').value = new Date().toISOString().split('T')[0];
+  // Update avatar/name
+  const name = localStorage.getItem('sp_username') || '';
+  if (name) {
+    document.getElementById('avatarEl').textContent = name.charAt(0);
+    document.getElementById('hdrSub').textContent = 'أهلاً، ' + name.split(' ')[0];
+  }
   renderLegend();
   renderAll();
   renderCycleTab();
@@ -1047,6 +1079,7 @@ function swipeEnd(e, dateStr) {
     shifts[dateStr] = [{ id:'s'+Date.now(), type:nextType, from:info.from, to:info.to, note:'', source:'manual' }];
   }
   renderAll();
+  saveData();
   showToast(`✓ ${info.label}`);
 }
 
@@ -1090,6 +1123,7 @@ function saveShift() {
   if (!shifts[date]) shifts[date] = [];
   shifts[date].push({ id:'s'+Date.now(), type:t, from, to, note, source:'manual' });
 
+  saveData();
   showToast('✓ تمت إضافة المناوبة');
   closeSheet('addOverlay');
   renderAll();
@@ -1099,6 +1133,7 @@ function deleteShift(dateStr, id) {
   if (!shifts[dateStr]) return;
   shifts[dateStr] = shifts[dateStr].filter(s=>s.id!==id);
   if (!shifts[dateStr].length) delete shifts[dateStr];
+  saveData();
   renderAll();
   showToast('تم الحذف');
 }
@@ -1159,6 +1194,7 @@ function deleteCycle(id) {
       cycles = cycles.filter(x=>x.id!==id);
       cycleApplications = cycleApplications.filter(a=>a.cycleId!==id);
       if (state.activeCycleId===id) state.activeCycleId = null;
+      saveData();
       showToast('✓ تم حذف الدورة');
       renderCycleTab();
       renderAll();
@@ -1184,6 +1220,7 @@ function applyCycle() {
       // Remove existing application for same start or later that would conflict
       cycleApplications = cycleApplications.filter(a => a.startDate !== startDate);
       cycleApplications.push({ cycleId: state.activeCycleId, startDate });
+      saveData();
       showToast('✓ تم تطبيق الدورة على التقويم');
       renderAll();
       renderCycleTab();
@@ -1469,6 +1506,7 @@ function saveCycle() {
   cycleApplications = cycleApplications.filter(a => a.cycleId !== cycleId);
   cycleApplications.push({ cycleId, startDate: miniCalSelected });
 
+  saveData();
   closeSheet('cycleSheet');
   renderCycleTab();
   renderAll();
@@ -1480,6 +1518,7 @@ function saveCycle() {
 function clearAllShifts() {
   confirmDialog('مسح جميع المناوبات', 'هل تريد حذف كل المناوبات المضافة يدوياً؟', ()=>{
     shifts = {};
+    saveData();
     showToast('✓ تم مسح كل المناوبات');
     renderAll();
   });
