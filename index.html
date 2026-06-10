@@ -118,9 +118,12 @@ body::before {
   padding:0 10px; gap:3px;
 }
 .day-cell {
-  aspect-ratio:1; border-radius:10px; display:flex; flex-direction:column;
-  align-items:center; justify-content:center; cursor:pointer;
-  transition:transform .15s, background .15s; position:relative; padding:2px;
+  aspect-ratio: 0.75;
+  border-radius:10px; display:flex; flex-direction:column;
+  align-items:center; justify-content:flex-start; cursor:pointer;
+  transition:transform .15s, background .15s; position:relative;
+  padding:4px 2px 3px;
+  overflow:hidden;
 }
 .day-cell:active { transform:scale(0.9); }
 .day-cell.other  { opacity:0.25; pointer-events:none; }
@@ -129,7 +132,19 @@ body::before {
 .day-num {
   width:22px; height:22px; border-radius:50%; display:flex;
   align-items:center; justify-content:center;
-  font-size:12px; font-weight:500; color:var(--text); flex-shrink:0;
+  font-size:11px; font-weight:500; color:var(--text); flex-shrink:0;
+}
+.day-shift-badge {
+  width:100%; margin-top:3px;
+  border-radius:6px; padding:2px 0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:1px; flex:1;
+}
+.day-shift-emoji { font-size:13px; line-height:1; }
+.day-shift-label {
+  font-size:9px; font-weight:700; line-height:1.1;
+  text-align:center; width:100%;
+  white-space:nowrap; overflow:hidden; text-overflow:clip;
 }
 .day-dots { display:flex; gap:2px; margin-top:2px; }
 .dot { width:5px; height:5px; border-radius:50%; }
@@ -615,13 +630,13 @@ body::before {
 
 <!-- ── Cycle Editor Sheet ── -->
 <div class="overlay" id="cycleSheet" onclick="overlayClick(event,'cycleSheet')">
-  <div class="sheet">
+  <div class="sheet" style="max-height:92vh">
     <div class="sheet-handle"></div>
     <div class="sheet-title" id="cycleSheetTitle">دورة جديدة</div>
 
     <div class="sheet-section">
       <div class="sheet-label">اسم الدورة</div>
-      <input class="name-input" id="cycleNameInput" placeholder="مثال: ٢ صباح / ٢ نهار / ٢ ليل / ٢ إجازة">
+      <input class="name-input" id="cycleNameInput" placeholder="مثال: 2-2-4">
     </div>
 
     <div class="sheet-section">
@@ -629,10 +644,85 @@ body::before {
       <div class="color-row" id="colorRow"></div>
     </div>
 
+    <!-- Grouped shift blocks -->
     <div class="sheet-section">
-      <div class="sheet-label">أيام الدورة بالترتيب</div>
-      <div class="step-builder" id="stepBuilder"></div>
-      <button class="add-step-btn" style="width:100%;margin-top:6px" onclick="addCycleStep()">+ إضافة يوم</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="sheet-label" style="margin-bottom:0">الشيفتات والأيام</div>
+        <button class="add-step-btn" onclick="addShiftBlock()" style="padding:5px 12px;font-size:12px">+ إضافة شيفت</button>
+      </div>
+      <div id="shiftBlockBuilder"></div>
+
+      <!-- OFF days row -->
+      <div style="
+        display:flex;align-items:center;gap:10px;
+        background:var(--surface2);border-radius:12px;padding:10px 12px;margin-top:8px;
+        border:1px solid var(--border)
+      ">
+        <div style="
+          width:36px;height:36px;border-radius:10px;background:#47556922;
+          display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0
+        ">🏖️</div>
+        <div style="flex:1;font-size:13px;font-weight:600;color:var(--text)">إجازة / OFF</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button onclick="changeOffDays(-1)" style="
+            width:28px;height:28px;border-radius:8px;border:1px solid var(--border);
+            background:var(--surface);color:var(--text);font-size:16px;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;line-height:1
+          ">−</button>
+          <span id="offDaysVal" style="min-width:24px;text-align:center;font-weight:700;font-size:15px">4</span>
+          <button onclick="changeOffDays(1)" style="
+            width:28px;height:28px;border-radius:8px;border:1px solid var(--border);
+            background:var(--surface);color:var(--text);font-size:16px;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;line-height:1
+          ">+</button>
+        </div>
+        <span style="font-size:11px;color:var(--muted);min-width:28px">يوم</span>
+      </div>
+
+      <!-- Cycle summary -->
+      <div id="cycleSummary" style="
+        margin-top:10px;padding:8px 12px;background:var(--surface2);
+        border-radius:10px;font-size:12px;color:var(--muted);text-align:center;
+        border:1px dashed var(--border)
+      "></div>
+    </div>
+
+    <!-- Start Date Picker -->
+    <div class="sheet-section">
+      <div class="sheet-label">📅 تاريخ بداية الدورة</div>
+
+      <!-- Month nav -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <button onclick="miniCalPrev()" style="
+          width:32px;height:32px;border-radius:8px;border:1px solid var(--border);
+          background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer
+        ">›</button>
+        <span id="miniCalLabel" style="font-size:13px;font-weight:700;color:var(--text)"></span>
+        <button onclick="miniCalNext()" style="
+          width:32px;height:32px;border-radius:8px;border:1px solid var(--border);
+          background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer
+        ">‹</button>
+      </div>
+
+      <!-- DOW headers -->
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;direction:ltr">
+        <div style="text-align:center;font-size:10px;color:var(--faint);padding:2px 0">أح</div>
+        <div style="text-align:center;font-size:10px;color:var(--faint);padding:2px 0">إث</div>
+        <div style="text-align:center;font-size:10px;color:var(--faint);padding:2px 0">ثل</div>
+        <div style="text-align:center;font-size:10px;color:var(--faint);padding:2px 0">أر</div>
+        <div style="text-align:center;font-size:10px;color:var(--faint);padding:2px 0">خم</div>
+        <div style="text-align:center;font-size:10px;color:var(--faint);padding:2px 0">جم</div>
+        <div style="text-align:center;font-size:10px;color:var(--faint);padding:2px 0">سب</div>
+      </div>
+
+      <!-- Days grid -->
+      <div id="miniCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px"></div>
+
+      <!-- Selected date display -->
+      <div id="miniCalSelected" style="
+        margin-top:10px;text-align:center;font-size:12px;color:var(--accent);
+        font-weight:600;min-height:18px
+      "></div>
     </div>
 
     <div class="sheet-btns">
@@ -792,10 +882,24 @@ function renderCalendar() {
     const isToday = dateStr === today;
     const isSel   = dateStr === state.selectedDate;
 
-    let dots = '';
-    dayShifts.slice(0,3).forEach(s => {
-      dots += `<div class="dot" style="background:${SHIFT_TYPES[s.type]?.color||'#888'}"></div>`;
-    });
+    const shiftEmojis = { morning:'☀️', evening:'🌇', night:'🌙', off:'🏖️' };
+    const shiftLabels = { morning:'صباح', evening:'نهار', night:'ليل', off:'إجازة' };
+    const shiftColors = {
+      morning: { bg:'rgba(56,189,248,0.15)',  color:'#0369a1' },
+      evening: { bg:'rgba(251,191,36,0.18)',  color:'#92400e' },
+      night:   { bg:'rgba(30,41,98,0.30)',    color:'#1e2962' },
+      off:     { bg:'rgba(71,85,105,0.12)',   color:'#475569' },
+    };
+
+    let shiftBadge = '';
+    if (dayShifts.length) {
+      const s = dayShifts[0];
+      const sc = shiftColors[s.type] || shiftColors.off;
+      shiftBadge = `<div class="day-shift-badge" style="background:${sc.bg}">
+        <span class="day-shift-emoji">${shiftEmojis[s.type]||''}</span>
+        <span class="day-shift-label" style="color:${sc.color}">${shiftLabels[s.type]||''}</span>
+      </div>`;
+    }
 
     // cycle bar
     let bar = '';
@@ -815,7 +919,7 @@ function renderCalendar() {
       data-date="${dateStr}">
       <div class="swipe-overlay"></div>
       <div class="day-num">${d}</div>
-      ${dots ? `<div class="day-dots">${dots}</div>` : ''}
+      ${shiftBadge}
       ${bar}
     </div>`;
   }
@@ -1019,6 +1123,10 @@ function renderCycleTab() {
         </div>
         ${isActive?'<span style="font-size:11px;color:var(--accent)">✓ مطبقة</span>':''}
         <button class="cycle-edit-btn" onclick="event.stopPropagation();editCycle('${c.id}')">تعديل</button>
+        <button onclick="event.stopPropagation();deleteCycle('${c.id}')" style="
+          width:28px;height:28px;border-radius:8px;border:none;
+          background:#ef444420;color:#ef4444;font-size:14px;cursor:pointer;flex-shrink:0
+        ">🗑</button>
       </div>`;
     }).join('');
   }
@@ -1039,6 +1147,23 @@ function renderCycleTab() {
     }
   }
   document.getElementById('activeCycleCard').style.display = 'none';
+}
+
+function deleteCycle(id) {
+  const c = cycles.find(x=>x.id===id);
+  if (!c) return;
+  confirmDialog(
+    'حذف الدورة',
+    `هل تريد حذف دورة "${c.name}"؟ سيتم إزالتها من التقويم أيضاً.`,
+    () => {
+      cycles = cycles.filter(x=>x.id!==id);
+      cycleApplications = cycleApplications.filter(a=>a.cycleId!==id);
+      if (state.activeCycleId===id) state.activeCycleId = null;
+      showToast('✓ تم حذف الدورة');
+      renderCycleTab();
+      renderAll();
+    }
+  );
 }
 
 function selectCycle(id) {
@@ -1069,31 +1194,8 @@ function applyCycle() {
 }
 
 // ═══════════════════════════════════════════════════════
-//  CYCLE EDITOR SHEET
+//  CYCLE EDITOR — GROUPED BLOCKS
 // ═══════════════════════════════════════════════════════
-let editingSteps = [];
-
-function openNewCycleSheet() {
-  state.editingCycleId = null;
-  document.getElementById('cycleSheetTitle').textContent = 'دورة جديدة';
-  document.getElementById('cycleNameInput').value = '';
-  editingSteps = ['morning','morning','night','night','off','off'];
-  renderColorRow(CYCLE_COLORS[0]);
-  renderStepBuilder();
-  document.getElementById('cycleSheet').classList.add('open');
-}
-
-function editCycle(id) {
-  const c = cycles.find(x=>x.id===id);
-  if (!c) return;
-  state.editingCycleId = id;
-  document.getElementById('cycleSheetTitle').textContent = 'تعديل الدورة';
-  document.getElementById('cycleNameInput').value = c.name;
-  editingSteps = [...c.steps];
-  renderColorRow(c.color);
-  renderStepBuilder();
-  document.getElementById('cycleSheet').classList.add('open');
-}
 
 function renderColorRow(selectedColor) {
   document.getElementById('colorRow').innerHTML = CYCLE_COLORS.map(col=>
@@ -1119,45 +1221,253 @@ function getSelectedColor() {
   return sel ? sel.style.background : CYCLE_COLORS[0];
 }
 
-function renderStepBuilder() {
-  const sb = document.getElementById('stepBuilder');
-  sb.innerHTML = editingSteps.map((s,i)=>{
-    const opts = Object.entries(SHIFT_TYPES).map(([k,v])=>
-      `<option value="${k}"${k===s?' selected':''}>${v.label}</option>`
+// ═══════════════════════════════════════════════════════
+//  CYCLE EDITOR — GROUPED BLOCKS
+// ═══════════════════════════════════════════════════════
+// editingBlocks: [{type:'morning', days:2}, {type:'night', days:2}]
+// offDays: number
+let editingBlocks = [];
+let offDays = 4;
+let miniCalMonth = new Date();
+let miniCalSelected = null;
+
+function openNewCycleSheet() {
+  state.editingCycleId = null;
+  document.getElementById('cycleSheetTitle').textContent = 'دورة جديدة';
+  document.getElementById('cycleNameInput').value = '';
+  editingBlocks = [
+    { type:'morning', days:2 },
+    { type:'night',   days:2 }
+  ];
+  offDays = 4;
+  miniCalMonth = new Date();
+  miniCalSelected = new Date().toISOString().split('T')[0];
+  renderColorRow(CYCLE_COLORS[0]);
+  renderShiftBlockBuilder();
+  renderMiniCal();
+  document.getElementById('cycleSheet').classList.add('open');
+}
+
+function editCycle(id) {
+  const c = cycles.find(x=>x.id===id);
+  if (!c) return;
+  state.editingCycleId = id;
+  document.getElementById('cycleSheetTitle').textContent = 'تعديل الدورة';
+  document.getElementById('cycleNameInput').value = c.name;
+  editingBlocks = [];
+  offDays = 0;
+  let i = 0;
+  while (i < c.steps.length) {
+    const t = c.steps[i];
+    let count = 0;
+    while (i < c.steps.length && c.steps[i] === t) { count++; i++; }
+    if (t === 'off') offDays += count;
+    else editingBlocks.push({ type: t, days: count });
+  }
+  // Find existing start date for this cycle
+  const app = cycleApplications.find(a=>a.cycleId===id);
+  miniCalSelected = app ? app.startDate : new Date().toISOString().split('T')[0];
+  miniCalMonth = new Date(miniCalSelected + 'T00:00:00');
+  renderColorRow(c.color);
+  renderShiftBlockBuilder();
+  renderMiniCal();
+  document.getElementById('cycleSheet').classList.add('open');
+}
+
+function addShiftBlock() {
+  // Pick a type not yet used, or default morning
+  const used = editingBlocks.map(b=>b.type);
+  const available = ['morning','evening','night'].find(t=>!used.includes(t)) || 'morning';
+  editingBlocks.push({ type: available, days: 2 });
+  renderShiftBlockBuilder();
+}
+
+function removeShiftBlock(i) {
+  editingBlocks.splice(i, 1);
+  renderShiftBlockBuilder();
+}
+
+function changeBlockDays(i, delta) {
+  editingBlocks[i].days = Math.max(1, editingBlocks[i].days + delta);
+  renderShiftBlockBuilder();
+}
+
+function changeBlockType(i, val) {
+  editingBlocks[i].type = val;
+  renderShiftBlockBuilder();
+}
+
+function changeOffDays(delta) {
+  offDays = Math.max(0, offDays + delta);
+  document.getElementById('offDaysVal').textContent = offDays;
+  updateCycleSummary();
+}
+
+function renderShiftBlockBuilder() {
+  document.getElementById('offDaysVal').textContent = offDays;
+  const container = document.getElementById('shiftBlockBuilder');
+
+  const shiftEmoji = { morning:'☀️', evening:'🌇', night:'🌙' };
+  const shiftColors = { morning:'#38bdf8', evening:'#fbbf24', night:'#818cf8' };
+
+  container.innerHTML = editingBlocks.map((b, i) => {
+    const opts = ['morning','evening','night'].map(k =>
+      `<option value="${k}"${k===b.type?' selected':''}>${shiftEmoji[k]} ${SHIFT_TYPES[k].label.replace(/[^\u0600-\u06FF\s☀️🌇🌙]/g,'').trim()}</option>`
     ).join('');
-    return `<div class="step-row">
-      <div class="step-number">${i+1}</div>
-      <select class="step-type-sel" onchange="updateStep(${i},this.value)">${opts}</select>
-      <button class="step-del" onclick="removeStep(${i})">✕</button>
+
+    return `<div style="
+      display:flex;align-items:center;gap:10px;
+      background:var(--surface2);border-radius:12px;padding:10px 12px;
+      margin-bottom:8px;border:2px solid ${shiftColors[b.type]}33;
+    ">
+      <div style="
+        width:36px;height:36px;border-radius:10px;
+        background:${shiftColors[b.type]}22;
+        display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0
+      ">${shiftEmoji[b.type]}</div>
+      <select onchange="changeBlockType(${i},this.value)" style="
+        flex:1;padding:6px 8px;border-radius:8px;border:1px solid var(--border);
+        background:var(--surface);color:var(--text);font-size:13px;font-weight:600;
+        font-family:'Cairo',sans-serif;
+      ">${opts}</select>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button onclick="changeBlockDays(${i},-1)" style="
+          width:28px;height:28px;border-radius:8px;border:1px solid var(--border);
+          background:var(--surface);color:var(--text);font-size:16px;cursor:pointer;
+          display:flex;align-items:center;justify-content:center;line-height:1
+        ">−</button>
+        <span style="min-width:24px;text-align:center;font-weight:700;font-size:15px;color:${shiftColors[b.type]}">${b.days}</span>
+        <button onclick="changeBlockDays(${i},1)" style="
+          width:28px;height:28px;border-radius:8px;border:1px solid var(--border);
+          background:var(--surface);color:var(--text);font-size:16px;cursor:pointer;
+          display:flex;align-items:center;justify-content:center;line-height:1
+        ">+</button>
+      </div>
+      <span style="font-size:11px;color:var(--muted);min-width:28px">يوم</span>
+      <button onclick="removeShiftBlock(${i})" style="
+        width:26px;height:26px;border-radius:6px;border:none;
+        background:#ef444422;color:#ef4444;font-size:14px;cursor:pointer;flex-shrink:0
+      ">✕</button>
     </div>`;
   }).join('');
+
+  updateCycleSummary();
 }
 
-function addCycleStep() {
-  editingSteps.push('morning');
-  renderStepBuilder();
+function updateCycleSummary() {
+  const el = document.getElementById('cycleSummary');
+  if (!el) return;
+  const total = editingBlocks.reduce((s,b)=>s+b.days,0) + offDays;
+  const parts = editingBlocks.map(b=>`${b.days} ${SHIFT_TYPES[b.type]?.label.replace(/[^\u0600-\u06FF\s]/g,'').trim()}`);
+  if (offDays > 0) parts.push(`${offDays} إجازة`);
+  el.innerHTML = total > 0
+    ? `🔄 دورة من <strong>${total}</strong> يوم: ${parts.join(' ← ')}`
+    : 'أضف شيفتات لبناء الدورة';
 }
 
-function updateStep(i, val) { editingSteps[i] = val; }
-function removeStep(i)      { editingSteps.splice(i,1); renderStepBuilder(); }
+function blocksToSteps() {
+  const steps = [];
+  for (const b of editingBlocks) {
+    for (let d=0; d<b.days; d++) steps.push(b.type);
+  }
+  for (let d=0; d<offDays; d++) steps.push('off');
+  return steps;
+}
+
+// ── Mini Calendar ──
+function renderMiniCal() {
+  const y = miniCalMonth.getFullYear();
+  const m = miniCalMonth.getMonth();
+  const label = document.getElementById('miniCalLabel');
+  if (label) label.textContent = MONTHS[m] + ' ' + y;
+
+  const grid = document.getElementById('miniCalGrid');
+  if (!grid) return;
+
+  const firstDay    = new Date(y,m,1).getDay(); // 0=Sun
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const today       = new Date().toISOString().split('T')[0];
+
+  // Build a 7-col grid: col 0 = Sun, col 6 = Sat
+  // In RTL layout col 0 renders on the right, so Sun appears rightmost → correct for Arabic calendar
+  let html = '';
+  for (let i = 0; i < firstDay; i++) html += `<div></div>`;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = ds === today;
+    const isSel   = ds === miniCalSelected;
+    html += `<div onclick="miniCalPick('${ds}')" style="
+      aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;
+      font-size:12px;font-weight:${isSel||isToday?'700':'400'};cursor:pointer;
+      background:${isSel?'var(--accent)':isToday?'rgba(201,168,76,0.2)':'transparent'};
+      color:${isSel?'#1a2e22':'var(--text)'};
+      border:${isToday&&!isSel?'1px solid var(--accent)':'1px solid transparent'};
+      transition:background .1s;
+    ">${d}</div>`;
+  }
+  grid.innerHTML = html;
+  // Force LTR on the grid so day 1 starts from the correct column
+  grid.style.direction = 'ltr';
+
+  const selEl = document.getElementById('miniCalSelected');
+  if (selEl) {
+    if (miniCalSelected) {
+      const [sy,sm,sd] = miniCalSelected.split('-');
+      selEl.textContent = `✓ بداية الدورة: ${parseInt(sd)} ${MONTHS[parseInt(sm)-1]} ${sy}`;
+    } else {
+      selEl.textContent = 'اختر تاريخ البداية';
+    }
+  }
+}
+
+function miniCalPick(ds) {
+  miniCalSelected = ds;
+  renderMiniCal();
+}
+
+function miniCalPrev() {
+  miniCalMonth = new Date(miniCalMonth.getFullYear(), miniCalMonth.getMonth()-1, 1);
+  renderMiniCal();
+}
+
+function miniCalNext() {
+  miniCalMonth = new Date(miniCalMonth.getFullYear(), miniCalMonth.getMonth()+1, 1);
+  renderMiniCal();
+}
 
 function saveCycle() {
-  const name = document.getElementById('cycleNameInput').value.trim();
-  if (!name)            { showToast('أدخل اسم الدورة'); return; }
-  if (!editingSteps.length) { showToast('أضف أيام الدورة'); return; }
+  const name = document.getElementById('cycleNameInput').value.trim() ||
+    (() => {
+      const parts = editingBlocks.map(b=>`${b.days} ${SHIFT_TYPES[b.type]?.label.replace(/[^\u0600-\u06FF\s]/g,'').trim()}`);
+      if (offDays) parts.push(`${offDays} إجازة`);
+      return parts.join(' / ');
+    })();
 
+  const steps = blocksToSteps();
+  if (!steps.length) { showToast('أضف شيفت واحد على الأقل'); return; }
+  if (!miniCalSelected) { showToast('اختر تاريخ بداية الدورة'); return; }
+
+  document.getElementById('cycleNameInput').value = name;
   const color = getSelectedColor();
+  let cycleId;
 
   if (state.editingCycleId) {
     const c = cycles.find(x=>x.id===state.editingCycleId);
     c.name  = name;
     c.color = color;
-    c.steps = [...editingSteps];
+    c.steps = steps;
+    cycleId = state.editingCycleId;
     showToast('✓ تم تحديث الدورة');
   } else {
-    cycles.push({ id:'c'+Date.now(), name, color, steps:[...editingSteps] });
-    showToast('✓ تم إنشاء الدورة');
+    cycleId = 'c'+Date.now();
+    cycles.push({ id:cycleId, name, color, steps });
+    showToast('✓ تم إنشاء الدورة وتطبيقها');
   }
+
+  // Apply the cycle from selected start date
+  cycleApplications = cycleApplications.filter(a => a.cycleId !== cycleId);
+  cycleApplications.push({ cycleId, startDate: miniCalSelected });
 
   closeSheet('cycleSheet');
   renderCycleTab();
