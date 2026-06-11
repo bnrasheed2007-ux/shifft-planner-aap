@@ -576,7 +576,7 @@ body::before {
           <div class="section-card-body" style="display:flex;flex-direction:column;gap:14px">
             <div>
               <div class="sheet-label">اسم المستخدم</div>
-              <input class="name-input" id="cfgName" placeholder="اسمك الكامل">
+              <input class="name-input" id="cfgName" placeholder="اسمك الكامل" oninput="saveData();document.getElementById('avatarEl').textContent=this.value.charAt(0)||'م'">
             </div>
             <div>
               <div class="sheet-label">حذف جميع المناوبات المضافة يدوياً</div>
@@ -772,14 +772,18 @@ const SHIFT_TYPES = {
 const CYCLE_COLORS = ['#c9a84c','#38bdf8','#818cf8','#f472b6','#34d399','#fb923c','#a78bfa','#fbbf24'];
 
 let state = {
-  currentMonth: new Date(2026,5,1),
-  selectedDate: new Date().toISOString().split('T')[0],
+  currentMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+  selectedDate: localDateStr(),
   activeTemplate: null,
   editingCycleId: null,
   activeCycleId: null,
 };
 
-// manual shifts: { 'YYYY-MM-DD': [{id,type,from,to,note,source},...] }
+// ── Local date helper (avoids UTC offset issues) ──
+function localDateStr(date) {
+  const d = date || new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 let shifts = {};
 
 // cycles: [{id, name, color, steps:['morning','night','off',...]}]
@@ -823,7 +827,7 @@ function loadData() {
 function init() {
   loadData();
   document.getElementById('dowRow').innerHTML = DAYS.map(d=>`<div class="dow-cell">${d}</div>`).join('');
-  document.getElementById('applyStartDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('applyStartDate').value = localDateStr();
   // Update avatar/name
   const name = localStorage.getItem('sp_username') || '';
   if (name) {
@@ -899,7 +903,7 @@ function renderCalendar() {
   const firstDay    = new Date(y,m,1).getDay();
   const daysInMonth = new Date(y,m+1,0).getDate();
   const prevDays    = new Date(y,m,0).getDate();
-  const today       = new Date().toISOString().split('T')[0];
+  const today       = localDateStr();
 
   let html = '';
 
@@ -1278,7 +1282,7 @@ function openNewCycleSheet() {
   ];
   offDays = 4;
   miniCalMonth = new Date();
-  miniCalSelected = new Date().toISOString().split('T')[0];
+  miniCalSelected = localDateStr();
   renderColorRow(CYCLE_COLORS[0]);
   renderShiftBlockBuilder();
   renderMiniCal();
@@ -1303,7 +1307,7 @@ function editCycle(id) {
   }
   // Find existing start date for this cycle
   const app = cycleApplications.find(a=>a.cycleId===id);
-  miniCalSelected = app ? app.startDate : new Date().toISOString().split('T')[0];
+  miniCalSelected = app ? app.startDate : localDateStr();
   miniCalMonth = new Date(miniCalSelected + 'T00:00:00');
   renderColorRow(c.color);
   renderShiftBlockBuilder();
@@ -1423,7 +1427,7 @@ function renderMiniCal() {
 
   const firstDay    = new Date(y,m,1).getDay(); // 0=Sun
   const daysInMonth = new Date(y,m+1,0).getDate();
-  const today       = new Date().toISOString().split('T')[0];
+  const today       = localDateStr();
 
   // Build a 7-col grid: col 0 = Sun, col 6 = Sat
   // In RTL layout col 0 renders on the right, so Sun appears rightmost → correct for Arabic calendar
