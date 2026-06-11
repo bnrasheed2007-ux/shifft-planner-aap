@@ -527,7 +527,14 @@ body::before {
         <div id="cycleBanner"></div>
         <div class="detail-hdr">
           <div class="detail-date" id="detailDate">—</div>
-          <button class="add-fab" onclick="openAddSheet()">+</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button onclick="openNoteSheet()" style="
+              width:34px;height:34px;border-radius:50%;border:none;
+              background:#f97316;color:#fff;font-size:16px;cursor:pointer;
+              box-shadow:0 2px 8px rgba(249,115,22,0.4);
+            ">📝</button>
+            <button class="add-fab" onclick="openAddSheet()">+</button>
+          </div>
         </div>
         <div class="shift-list" id="shiftList">
           <div class="empty-state"><div class="empty-icon">📅</div><div class="empty-txt">اختر يوماً لعرض المناوبات</div></div>
@@ -594,6 +601,39 @@ body::before {
     <div class="bn-item active" id="bn-cal" onclick="setTab('cal')"><div class="bn-icon">📅</div><div class="bn-label">التقويم</div></div>
     <div class="bn-item" id="bn-cycle" onclick="setTab('cycle')"><div class="bn-icon">🔄</div><div class="bn-label">الدورة</div></div>
     <div class="bn-item" id="bn-cfg" onclick="setTab('cfg')"><div class="bn-icon">⚙️</div><div class="bn-label">الإعدادات</div></div>
+  </div>
+</div>
+
+<!-- ── Note Sheet ── -->
+<div class="overlay" id="noteOverlay" onclick="overlayClick(event,'noteOverlay')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="noteDateTitle">ملاحظة اليوم</div>
+    <div class="sheet-section">
+      <div class="sheet-label">اختر نوع الملاحظة</div>
+      <div class="chip-row" style="flex-wrap:wrap;gap:8px">
+        <div class="chip" onclick="pickNoteTemplate(this,'إجازة')"       style="background:rgba(249,115,22,0.12);color:#c2410c">🏖️ إجازة</div>
+        <div class="chip" onclick="pickNoteTemplate(this,'استئذان')"     style="background:rgba(249,115,22,0.12);color:#c2410c">🙏 استئذان</div>
+        <div class="chip" onclick="pickNoteTemplate(this,'مرضية')"       style="background:rgba(249,115,22,0.12);color:#c2410c">🏥 مرضية</div>
+        <div class="chip" onclick="pickNoteTemplate(this,'تأخير')"       style="background:rgba(249,115,22,0.12);color:#c2410c">⏰ تأخير</div>
+        <div class="chip" onclick="pickNoteTemplate(this,'مهمة رسمية')" style="background:rgba(249,115,22,0.12);color:#c2410c">📋 مهمة رسمية</div>
+      </div>
+    </div>
+    <div class="sheet-section">
+      <div class="sheet-label">أو اكتب ملاحظتك</div>
+      <textarea id="noteTextInput" rows="3" placeholder="اكتب ملاحظتك هنا…" style="
+        width:100%;padding:10px 12px;border-radius:12px;
+        border:1px solid var(--border);background:var(--surface2);
+        color:var(--text);font-family:'Cairo',sans-serif;font-size:14px;
+        resize:none;box-sizing:border-box;outline:none;
+      "></textarea>
+    </div>
+    <!-- Existing notes for this day -->
+    <div id="existingNotes"></div>
+    <div class="sheet-btns">
+      <button class="btn-cancel" onclick="closeSheet('noteOverlay')">إلغاء</button>
+      <button class="btn-save"   onclick="saveNote()" style="background:#f97316">حفظ الملاحظة</button>
+    </div>
   </div>
 </div>
 
@@ -796,14 +836,76 @@ let cycleApplications = [];
 
 let notifications = [];
 
-// ═══════════════════════════════════════════════════════
-//  STORAGE
-// ═══════════════════════════════════════════════════════
+// notes: { 'YYYY-MM-DD': [{id, text}] }
+let notes = {};
+
+// ── Notes functions ──
+function formatDateAr(dateStr) {
+  if (!dateStr) return '';
+  const [y,m,d] = dateStr.split('-');
+  return `${parseInt(d)} ${MONTHS[parseInt(m)-1]} ${y}`;
+}
+
+function openNoteSheet() {
+  if (!state.selectedDate) { showToast('اختر يوماً أولاً'); return; }
+  document.getElementById('noteDateTitle').textContent = 'ملاحظة ' + formatDateAr(state.selectedDate);
+  document.getElementById('noteTextInput').value = '';
+  renderExistingNotes();
+  document.getElementById('noteOverlay').classList.add('open');
+}
+
+function pickNoteTemplate(el, text) {
+  document.getElementById('noteTextInput').value = text;
+  document.querySelectorAll('#noteOverlay .chip').forEach(c=>c.style.fontWeight='400');
+  el.style.fontWeight = '700';
+}
+
+function saveNote() {
+  const text = document.getElementById('noteTextInput').value.trim();
+  if (!text) { showToast('اكتب ملاحظة أولاً'); return; }
+  if (!notes[state.selectedDate]) notes[state.selectedDate] = [];
+  notes[state.selectedDate].push({ id:'n'+Date.now(), text });
+  saveData();
+  renderExistingNotes();
+  document.getElementById('noteTextInput').value = '';
+  renderAll();
+  showToast('✓ تمت إضافة الملاحظة');
+}
+
+function deleteNote(dateStr, id) {
+  notes[dateStr] = (notes[dateStr]||[]).filter(n=>n.id!==id);
+  if (!notes[dateStr].length) delete notes[dateStr];
+  saveData();
+  renderExistingNotes();
+  renderAll();
+}
+
+function renderExistingNotes() {
+  const el = document.getElementById('existingNotes');
+  const dayNotes = notes[state.selectedDate] || [];
+  if (!dayNotes.length) { el.innerHTML=''; return; }
+  el.innerHTML = `<div class="sheet-section">
+    <div class="sheet-label">الملاحظات الحالية</div>
+    ${dayNotes.map(n=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;
+        background:rgba(249,115,22,0.08);border-radius:10px;margin-bottom:6px;
+        border:1px solid rgba(249,115,22,0.2)">
+        <span style="font-size:16px">📝</span>
+        <span style="flex:1;font-size:13px;color:var(--text)">${n.text}</span>
+        <button onclick="deleteNote('${state.selectedDate}','${n.id}')" style="
+          background:none;border:none;color:#ef4444;font-size:16px;cursor:pointer
+        ">✕</button>
+      </div>`).join('')}
+  </div>`;
+}
+
+// ── Also show notes in daily shift list ──
 function saveData() {
   try {
     localStorage.setItem('sp_shifts',   JSON.stringify(shifts));
     localStorage.setItem('sp_cycles',   JSON.stringify(cycles));
     localStorage.setItem('sp_apps',     JSON.stringify(cycleApplications));
+    localStorage.setItem('sp_notes',    JSON.stringify(notes));
     localStorage.setItem('sp_username', document.getElementById('cfgName')?.value || '');
   } catch(e) {}
 }
@@ -813,10 +915,12 @@ function loadData() {
     const s = localStorage.getItem('sp_shifts');
     const c = localStorage.getItem('sp_cycles');
     const a = localStorage.getItem('sp_apps');
+    const n = localStorage.getItem('sp_notes');
     const u = localStorage.getItem('sp_username');
     if (s) shifts = JSON.parse(s);
     if (c) cycles = JSON.parse(c);
     if (a) cycleApplications = JSON.parse(a);
+    if (n) notes  = JSON.parse(n);
     if (u && document.getElementById('cfgName')) document.getElementById('cfgName').value = u;
   } catch(e) {}
 }
@@ -918,17 +1022,29 @@ function renderCalendar() {
     const isToday = dateStr === today;
     const isSel   = dateStr === state.selectedDate;
 
-    const shiftEmojis = { morning:'☀️', evening:'🌇', night:'🌙', off:'🏖️' };
-    const shiftLabels = { morning:'صباح', evening:'نهار', night:'ليل', off:'إجازة' };
+    const shiftEmojis = { morning:'☀️', evening:'🌇', night:'🌙', off:'🏖️', note:'📝' };
+    const shiftLabels = { morning:'صباح', evening:'نهار', night:'ليل', off:'إجازة', note:'ملاحظة' };
     const shiftColors = {
       morning: { bg:'rgba(56,189,248,0.15)',  color:'#0369a1' },
       evening: { bg:'rgba(251,191,36,0.18)',  color:'#92400e' },
       night:   { bg:'rgba(30,41,98,0.30)',    color:'#1e2962' },
       off:     { bg:'rgba(71,85,105,0.12)',   color:'#475569' },
+      note:    { bg:'rgba(249,115,22,0.18)',  color:'#c2410c' },
     };
 
     let shiftBadge = '';
-    if (dayShifts.length) {
+    // Check for note first (highest priority display)
+    const notesForDay = (notes[dateStr] || []);
+    const hasNote = notesForDay.length > 0;
+
+    if (hasNote) {
+      const n = notesForDay[0];
+      const sc = shiftColors.note;
+      shiftBadge = `<div class="day-shift-badge" style="background:${sc.bg}">
+        <span class="day-shift-emoji">📝</span>
+        <span class="day-shift-label" style="color:${sc.color};font-size:8px">${n.text.length>4?n.text.slice(0,4)+'…':n.text}</span>
+      </div>`;
+    } else if (dayShifts.length) {
       const s = dayShifts[0];
       const sc = shiftColors[s.type] || shiftColors.off;
       shiftBadge = `<div class="day-shift-badge" style="background:${sc.bg}">
@@ -999,20 +1115,32 @@ function renderDetail() {
   }
 
   const dayShifts = getEffectiveShiftsForDate(state.selectedDate);
-  if (!dayShifts.length) {
+  const dayNotes  = notes[state.selectedDate] || [];
+
+  if (!dayShifts.length && !dayNotes.length) {
     document.getElementById('shiftList').innerHTML =
       `<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-txt">لا توجد مناوبات لهذا اليوم</div></div>`;
     return;
   }
 
-  document.getElementById('shiftList').innerHTML = dayShifts.map(s => {
+  const noteCards = dayNotes.map(n=>`
+    <div class="shift-card" style="border-right:3px solid #f97316">
+      <div class="shift-stripe" style="background:#f97316"></div>
+      <div class="shift-body">
+        <div class="shift-name">📝 ملاحظة</div>
+        <div class="shift-emp" style="color:#c2410c;font-size:13px">${n.text}</div>
+      </div>
+      <button class="delete-btn" onclick="deleteNote('${state.selectedDate}','${n.id}')">✕</button>
+    </div>`).join('');
+
+  document.getElementById('shiftList').innerHTML = noteCards + dayShifts.map(s => {
     const info = SHIFT_TYPES[s.type] || {};
     const isCycle = s.source === 'cycle';
     return `<div class="shift-card">
       <div class="shift-stripe" style="background:${info.color}"></div>
       <div class="shift-body">
         <div class="shift-name">${info.label||s.type}</div>
-        <div class="shift-meta">${s.from} — ${s.to}</div>
+        <div class="shift-meta"></div>
         ${s.note ? `<div class="shift-emp">📝 ${s.note}</div>` : ''}
         ${isCycle ? `<div class="shift-emp" style="color:var(--accent)">🔄 من دورة: ${s.cycle?.name||''}</div>` : ''}
       </div>
