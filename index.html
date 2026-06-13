@@ -614,7 +614,7 @@ body::before {
   <div id="persistInstallBar" style="
     display:none;
     background:#1e7a46;padding:10px 14px;
-    display:flex;align-items:center;gap:10px;
+    align-items:center;gap:10px;
     font-family:Cairo,sans-serif;
   ">
     <span style="font-size:20px">📲</span>
@@ -1865,15 +1865,13 @@ function setupPWA() {
   `;
   document.body.appendChild(banner);
 
-  // Show banner immediately if not already installed
+  // Show banner only if not installed and not dismissed
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
   const isIOSDevice = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  let installDismissed = false;
+  try { installDismissed = localStorage.getItem('installDismissed') === '1'; } catch(e) {}
 
-  // Hide install bar if already running as installed app
-  if (isStandalone) {
-    const bar = document.getElementById('persistInstallBar');
-    if (bar) bar.style.display = 'none';
-  } else {
+  if (!isStandalone && !installDismissed) {
     setTimeout(() => {
       const bar = document.getElementById('persistInstallBar');
       if (bar) bar.style.display = 'flex';
@@ -1899,8 +1897,11 @@ function setupPWA() {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       deferredPrompt = null;
+      if (outcome === 'accepted') {
+        try { localStorage.setItem('installDismissed', '1'); } catch(e) {}
+        showToast('✓ تم تثبيت التطبيق!');
+      }
       dismissInstall();
-      if (outcome === 'accepted') showToast('✓ تم تثبيت التطبيق!');
     } else {
       // iOS or already installed
       const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -1917,21 +1918,25 @@ function setupPWA() {
 
   window.dismissInstall = () => {
     const inner = document.getElementById('installBannerInner');
-    if (inner) inner.style.transform = 'translateY(100px)';
-  };
-
-  // Already installed? hide banner
-  window.addEventListener('appinstalled', () => {
-    dismissInstall();
+    if (inner) inner.style.transform = 'translateY(120px)';
     const bar = document.getElementById('persistInstallBar');
     if (bar) bar.style.display = 'none';
+    try { localStorage.setItem('installDismissed', '1'); } catch(e) {}
+  };
+
+  // Already installed? hide banner permanently
+  window.addEventListener('appinstalled', () => {
+    dismissInstall();
+    try { localStorage.setItem('installDismissed', '1'); } catch(e) {}
     showToast('✓ تم تثبيت التطبيق بنجاح!');
   });
 
   // iOS detection — show tip after 3s if no beforeinstallprompt fired
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-  if (isIOS && !isStandalone) {
+  const isStandaloneIOS = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  let iosDismissed = false;
+  try { iosDismissed = localStorage.getItem('installDismissed') === '1'; } catch(e) {}
+  if (isIOS && !isStandaloneIOS && !iosDismissed) {
     setTimeout(() => {
       const inner = document.getElementById('installBannerInner');
       if (inner) inner.style.transform = 'translateY(0)';
