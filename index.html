@@ -1869,13 +1869,14 @@ function setupPWA() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
   const isIOSDevice = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-  if (!isStandalone) {
+  // Hide install bar if already running as installed app
+  if (isStandalone) {
+    const bar = document.getElementById('persistInstallBar');
+    if (bar) bar.style.display = 'none';
+  } else {
     setTimeout(() => {
-      // Show persistent bar always
       const bar = document.getElementById('persistInstallBar');
       if (bar) bar.style.display = 'flex';
-
-      // Show floating banner only if beforeinstallprompt fired (Android/Chrome)
       if (deferredPrompt) {
         const inner = document.getElementById('installBannerInner');
         if (inner) inner.style.transform = 'translateY(0)';
@@ -1940,4 +1941,3 @@ function setupPWA() {
 </script>
 </body>
 </html>
- 
