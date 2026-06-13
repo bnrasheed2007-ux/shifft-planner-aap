@@ -1867,20 +1867,30 @@ function setupPWA() {
 
   // Show banner immediately if not already installed
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  const isIOSDevice = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
   if (!isStandalone) {
     setTimeout(() => {
-      // Show floating banner
-      const inner = document.getElementById('installBannerInner');
-      if (inner) inner.style.transform = 'translateY(0)';
-      // Show persistent bar
+      // Show persistent bar always
       const bar = document.getElementById('persistInstallBar');
       if (bar) bar.style.display = 'flex';
-    }, 1000);
+
+      // Show floating banner only if beforeinstallprompt fired (Android/Chrome)
+      if (deferredPrompt) {
+        const inner = document.getElementById('installBannerInner');
+        if (inner) inner.style.transform = 'translateY(0)';
+      }
+    }, 1200);
   }
 
   window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
     deferredPrompt = e;
+    // Show floating banner now that we can install
+    setTimeout(() => {
+      const inner = document.getElementById('installBannerInner');
+      if (inner) inner.style.transform = 'translateY(0)';
+    }, 500);
   });
 
   window.doInstall = async () => {
@@ -1930,3 +1940,4 @@ function setupPWA() {
 </script>
 </body>
 </html>
+ 
